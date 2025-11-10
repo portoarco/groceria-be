@@ -24,7 +24,13 @@ CartController.getCart = (0, AsyncHandler_1.asyncHandler)(async (req, res) => {
             cartItems: {
                 include: {
                     product: {
-                        include: { images: { take: 1 } },
+                        include: {
+                            images: { take: 1 },
+                            stocks: {
+                                where: { store_id: { equals: req.user.store_id ?? undefined } },
+                                select: { stock_quantity: true },
+                            },
+                        },
                     },
                 },
                 orderBy: { id: "asc" },
@@ -32,6 +38,23 @@ CartController.getCart = (0, AsyncHandler_1.asyncHandler)(async (req, res) => {
             store: true,
         },
     });
+    if (cart) {
+        // Since the above `where` on stocks might not work in a nested include,
+        // we'll ensure we get the right stock for the cart's store.
+        const cartStoreId = cart.store_id;
+        for (const item of cart.cartItems) {
+            const stock = await prisma_1.default.productStocks.findUnique({
+                where: {
+                    store_id_product_id: {
+                        store_id: cartStoreId,
+                        product_id: item.product_id,
+                    },
+                },
+                select: { stock_quantity: true },
+            });
+            item.product.stocks = [stock || { stock_quantity: 0 }];
+        }
+    }
     if (!cart) {
         return ApiResponse_1.ApiResponse.success(res, {
             store: null,
@@ -51,6 +74,7 @@ CartController.getCart = (0, AsyncHandler_1.asyncHandler)(async (req, res) => {
                 price: item.product.price.toString(),
                 imageUrl: item.product.images[0]?.image_url ||
                     "https://placehold.co/400x400/png",
+                stock: item.product.stocks[0]?.stock_quantity ?? 0,
             },
         })),
     };

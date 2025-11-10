@@ -59,6 +59,8 @@ class OrderService {
             let productDiscount = 0;
             let shippingDiscount = 0;
             let finalAppliedDiscount = null;
+            let isB1G1 = false;
+            let b1g1ProductId = null;
             if (promoCode) {
                 const foundDiscount = await tx.discount.findFirst({
                     where: {
@@ -66,6 +68,7 @@ class OrderService {
                         is_deleted: false,
                         start_date: { lte: new Date() },
                         end_date: { gte: new Date() },
+                        OR: [{ store_id: null }, { store_id: storeId }],
                     },
                 });
                 if (foundDiscount) {
@@ -77,9 +80,9 @@ class OrderService {
                             shippingDiscount = shippingCostNum;
                         }
                         else if (finalAppliedDiscount.type === "B1G1") {
-                            const targetItem = userCart.cartItems.find((item) => item.product_id === finalAppliedDiscount.product_id);
-                            if (targetItem)
-                                productDiscount = Number(targetItem.product.price);
+                            isB1G1 = true;
+                            b1g1ProductId = finalAppliedDiscount.product_id;
+                            productDiscount = 0; // B1G1 is a quantity bonus, not a price discount.
                         }
                         else if (finalAppliedDiscount.discAmount) {
                             if (finalAppliedDiscount.valueType === "PERCENTAGE") {
@@ -93,6 +96,30 @@ class OrderService {
                     }
                 }
             }
+            // Re-validate stock with B1G1 logic
+            for (const item of userCart.cartItems) {
+                const productStock = await tx.productStocks.findUniqueOrThrow({
+                    where: {
+                        store_id_product_id: { store_id: userCart.store_id, product_id: item.product_id, },
+                    },
+                });
+                let requiredStock = item.quantity;
+                if (isB1G1 && item.product_id === b1g1ProductId) {
+                    requiredStock *= 2; // Double the stock requirement
+                }
+                if (productStock.stock_quantity < requiredStock) {
+                    throw new Error(`Insufficient stock for ${item.product.name}. Required: ${requiredStock}, Available: ${productStock.stock_quantity}`);
+                }
+            }
+            const finalUserCart = {
+                ...userCart,
+                cartItems: userCart.cartItems.map(item => {
+                    if (isB1G1 && item.product_id === b1g1ProductId) {
+                        return { ...item, quantity: item.quantity * 2 };
+                    }
+                    return item;
+                }),
+            };
             productDiscount = Math.min(subtotal, productDiscount);
             shippingDiscount = Math.min(shippingCostNum, shippingDiscount);
             const totalDiscount = productDiscount + shippingDiscount;
@@ -101,7 +128,7 @@ class OrderService {
                 tx,
                 userId,
                 storeId,
-                userCart,
+                userCart: finalUserCart,
                 userAddress,
                 destinationAddress,
                 paymentMethodId,
@@ -111,7 +138,7 @@ class OrderService {
                 totalPrice: totalPrice,
                 finalAppliedDiscount,
             });
-        });
+        }, { timeout: 20000 });
     }
     static async getOrderById(userId, orderId) {
         const order = await UserOrderReads_1.UserOrderReads.getFullOrderDetail(userId, orderId);

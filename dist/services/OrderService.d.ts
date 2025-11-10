@@ -24,6 +24,7 @@ declare class OrderService {
         discount_amount: Prisma.Decimal;
     }>;
     static getOrderById(userId: string, orderId: number): Promise<{
+        isB1G1Order: boolean;
         id: number;
         createdAt: Date;
         totalPrice: string;
@@ -47,6 +48,7 @@ declare class OrderService {
         items: {
             id: number;
             quantity: number;
+            isB1G1Item: boolean;
             priceAtPurchase: string;
             product: {
                 id: number;
@@ -70,7 +72,7 @@ declare class OrderService {
             totalPrice: string;
             status: import(".prisma/client").$Enums.OrderStatus;
             totalItems: number;
-            firstProductImage: string | null;
+            firstProductImage: string;
         }[];
         pagination: {
             currentPage: number;

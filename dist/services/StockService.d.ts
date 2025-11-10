@@ -8,13 +8,13 @@ declare class StockService {
             name: string;
             id: number;
         };
+        stock_quantity: number;
+        min_stock: number;
         product: {
             name: string;
             id: number;
             is_active: boolean;
         };
-        stock_quantity: number;
-        min_stock: number;
     }[]>;
     static changeProductStock: (storeId: number, data: StockChangeData) => Promise<{
         updatedStockRecord: {
@@ -30,10 +30,10 @@ declare class StockService {
             id: number;
             created_at: Date;
             user_id: string | null;
+            min_stock: number;
             quantity: number;
             order_id: number | null;
             type: import(".prisma/client").$Enums.StockChangeType;
-            min_stock: number;
             prev_stock: number;
             updated_stock: number;
             reason: string;
@@ -43,9 +43,9 @@ declare class StockService {
     }>;
     static getAllStockHistory: () => Promise<{
         created_at: Date;
+        min_stock: number;
         quantity: number;
         type: import(".prisma/client").$Enums.StockChangeType;
-        min_stock: number;
         prev_stock: number;
         updated_stock: number;
         reason: string;
@@ -65,9 +65,9 @@ declare class StockService {
     static getStockHistoryWithSummary: (query: HistoryQueryParams) => Promise<{
         stockHistory: {
             created_at: Date;
+            min_stock: number;
             quantity: number;
             type: import(".prisma/client").$Enums.StockChangeType;
-            min_stock: number;
             prev_stock: number;
             updated_stock: number;
             reason: string;

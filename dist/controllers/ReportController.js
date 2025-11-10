@@ -20,7 +20,7 @@ ReportController.getAllOrderData = (0, AsyncHandler_1.asyncHandler)(async (req, 
         where: {
             order: {
                 orderStatus: {
-                    status: "SHIPPED",
+                    status: { in: ["SHIPPED", "DELIVERED"] },
                 },
             },
             created_at: {
@@ -84,7 +84,7 @@ ReportController.getOrderDataByStore = (0, AsyncHandler_1.asyncHandler)(async (r
         where: {
             order: {
                 orderStatus: {
-                    status: "SHIPPED",
+                    status: { in: ["SHIPPED", "DELIVERED"] },
                 },
             },
             created_at: { gte: startDate, lte: endDate },

@@ -29,11 +29,7 @@ declare class AuthService {
         user: {
             store: {
                 name: string;
-<<<<<<< HEAD
             };
-=======
-            } | null;
->>>>>>> origin/temporary-3
         } & {
             id: string;
             email: string;

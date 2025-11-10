@@ -107,6 +107,7 @@ ProductController.getAllProductByLocation = (0, AsyncHandler_1.asyncHandler)(asy
                         stock_quantity: true,
                         store: {
                             select: {
+                                id: true,
                                 admins: {
                                     select: {
                                         phone: true,

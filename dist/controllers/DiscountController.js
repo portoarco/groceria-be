@@ -31,9 +31,9 @@ DiscountController.createDiscount = (0, AsyncHandler_1.asyncHandler)(async (req,
     ApiResponse_1.ApiResponse.success(res, createDiscount, "Create Discount Success!", 200);
 });
 DiscountController.verifyDiscount = (0, AsyncHandler_1.asyncHandler)(async (req, res) => {
-    const { code, subtotal, items } = req.body;
-    if (!code || subtotal === undefined || !items) {
-        return ApiResponse_1.ApiResponse.error(res, "Code, subtotal, and cart items are required", 400);
+    const { code, subtotal, items, storeId } = req.body;
+    if (!code || subtotal === undefined || !items || !storeId) {
+        return ApiResponse_1.ApiResponse.error(res, "Code, subtotal, items, and storeId are required", 400);
     }
     const discount = await prisma_1.default.discount.findFirst({
         where: {
@@ -44,14 +44,33 @@ DiscountController.verifyDiscount = (0, AsyncHandler_1.asyncHandler)(async (req,
             is_deleted: false,
             start_date: { lte: new Date() },
             end_date: { gte: new Date() },
+            OR: [{ store_id: null }, { store_id: storeId }],
         },
     });
     if (!discount) {
         return ApiResponse_1.ApiResponse.error(res, "Promo code not found or has expired", 404);
     }
     // Check if product-specific discount is valid for the cart items
-    if ((discount.type === "MANUAL" || discount.type === "B1G1") &&
-        discount.product_id) {
+    if (discount.type === "B1G1" && discount.product_id) {
+        const requiredItem = items.find((item) => item.productId === discount.product_id);
+        if (!requiredItem) {
+            return ApiResponse_1.ApiResponse.error(res, "Required product for this promo is not in your cart.", 400);
+        }
+        const stock = await prisma_1.default.productStocks.findUnique({
+            where: {
+                store_id_product_id: {
+                    store_id: storeId,
+                    product_id: discount.product_id,
+                },
+            },
+            select: { stock_quantity: true },
+        });
+        const availableStock = stock?.stock_quantity ?? 0;
+        if (requiredItem.quantity * 2 > availableStock) {
+            return ApiResponse_1.ApiResponse.error(res, `Cannot apply B1G1: Not enough stock for the free item. Only ${availableStock} total units available.`, 400);
+        }
+    }
+    else if (discount.type === "MANUAL" && discount.product_id) {
         const requiredItem = items.find((item) => item.productId === discount.product_id);
         if (!requiredItem) {
             return ApiResponse_1.ApiResponse.error(res, "Required product for this promo is not in your cart.", 400);
@@ -69,17 +88,8 @@ DiscountController.verifyDiscount = (0, AsyncHandler_1.asyncHandler)(async (req,
         discountValue = 0;
     }
     else if (discount.type === "B1G1") {
-        frontendPromoType = "fixed";
-        if (discount.product_id) {
-            const product = await prisma_1.default.product.findUnique({
-                where: { id: discount.product_id },
-            });
-            const targetItem = items.find((item) => item.productId === discount.product_id);
-            // B1G1 logic: if the required item exists, the discount is its price.
-            if (product && targetItem && targetItem.quantity >= 1) {
-                discountValue = Number(product.price);
-            }
-        }
+        frontendPromoType = "b1g1";
+        discountValue = 0; // B1G1 is not a monetary discount, it's about quantity
     }
     else if (discount.discAmount &&
         (discount.type === "MANUAL" || discount.type === "MIN_PURCHASE")) {
@@ -97,6 +107,7 @@ DiscountController.verifyDiscount = (0, AsyncHandler_1.asyncHandler)(async (req,
         description: discount.description || "",
         type: frontendPromoType,
         value: discountValue,
+        productId: discount.product_id,
     };
     ApiResponse_1.ApiResponse.success(res, responsePayload, "Promo code applied successfully");
 });
