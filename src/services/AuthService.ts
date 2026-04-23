@@ -87,7 +87,7 @@ class AuthService {
   private async _sendVerificationEmail(
     userId: string,
     email: string,
-    path: string
+    path: string,
   ) {
     await prisma.verificationToken.deleteMany({
       where: {
@@ -127,7 +127,7 @@ class AuthService {
     await this._sendVerificationEmail(
       user.id,
       user.email,
-      "/auth/verify-new-email"
+      "/auth/verify-new-email",
     );
 
     return { message: "Email verifikasi berhasil dikirim ulang" };
@@ -154,12 +154,15 @@ class AuthService {
     const isValid = await comparePassword(password, user.password);
     if (!isValid) throw new Error("Email atau password salah");
 
-    const token = signToken({
-      id: user.id,
-      role: user.role,
-      email: user.email,
-      store_id: user.store_id,
-    });
+    const token = signToken(
+      {
+        id: user.id,
+        role: user.role,
+        email: user.email,
+        store_id: user.store_id,
+      },
+      "24h",
+    );
 
     return { user, token };
   }
