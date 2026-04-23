@@ -34,7 +34,7 @@ class CronService {
       }
 
       console.log(
-        `CRON: Found ${expiredOrders.length} expired orders. Processing...`
+        `CRON: Found ${expiredOrders.length} expired orders. Processing...`,
       );
 
       const cancelledStatus = await prisma.orderStatuses.findUniqueOrThrow({
@@ -88,7 +88,7 @@ class CronService {
           });
 
           console.log(
-            `CRON: Successfully cancelled Order #${order.id} and restored stock.`
+            `CRON: Successfully cancelled Order #${order.id} and restored stock.`,
           );
         });
       }
@@ -146,7 +146,7 @@ class CronService {
       });
 
       console.log(
-        `CRON: Successfully auto-confirmed ${count} delivered orders.`
+        `CRON: Successfully auto-confirmed ${count} delivered orders.`,
       );
     } catch (error) {
       console.error("CRON: Error during order auto-confirmation job:", error);
@@ -157,6 +157,39 @@ class CronService {
     cron.schedule("0 0 * * *", async () => {
       await this.runOrderAutoConfirmationJob();
     });
+  }
+  public static async runFetchDataJob() {
+    await prisma.product.findMany({
+      where: {
+        is_deleted: false,
+        is_active: true,
+      },
+      include: {
+        stocks: {
+          select: {
+            store: true,
+            stock_quantity: true,
+          },
+        },
+        images: true,
+        category: true,
+      },
+    });
+    try {
+    } catch (err) {
+      console.error("error fetching data");
+    }
+  }
+  public static startSyncFetchDataGradually() {
+    cron.schedule(
+      "0 0 */5 * *",
+      async () => {
+        await this.runFetchDataJob();
+      },
+      {
+        timezone: "Asia/Jakarta",
+      },
+    );
   }
 }
 

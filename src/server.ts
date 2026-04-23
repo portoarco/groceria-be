@@ -6,5 +6,7 @@ const PORT = Number(process.env.PORT) || 5000;
 const server = new App(PORT);
 server.listen();
 
+CronService.runFetchDataJob();
+CronService.startSyncFetchDataGradually();
 // CronService.startOrderCancellationJob();
 // CronService.startOrderAutoConfirmationJob();
